@@ -1,7 +1,6 @@
 # Warmtrace website
 
-Static website for [getwarmtrace.com](https://getwarmtrace.com), following the
-Ashraya Studio GitHub Pages pattern.
+Static product website for [getwarmtrace.com](https://getwarmtrace.com).
 
 The site has no runtime dependencies, JavaScript, backend, cookies, analytics,
 advertising, or tracking. Edit the HTML/CSS directly and serve the repository
