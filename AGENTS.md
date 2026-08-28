@@ -28,21 +28,24 @@ D-027, and MIG-004 in `docs/DECISION-LOG.md`, `docs/CURRENT-STATE.md`, and
 
 ## Responsibility routing
 
-- Codex owns exactly authorized local source/docs edits, local validators,
-  diffs, and read-only local Git inspection.
-- Hermes is the designated and exclusive operator for every GitHub network
-  operation for `ashrayastudio/warmtrace` at
-  `https://github.com/ashrayastudio/warmtrace.git`.
-- For ordinary Git data, Hermes must use the existing authenticated Git HTTPS
-  path through `/Users/hermes/.local/bin/hermes -z`; Codex must not fall back
-  to direct `gh`, API, browser, SSH, or networked Git.
-- Every Hermes request must name the exact repository/URL, Git HTTPS transport,
+- Codex owns exactly authorized local source/docs edits, validators, diffs,
+  local Git, and ordinary GitHub network work for `ashrayastudio/warmtrace` at
+  `https://github.com/ashrayastudio/warmtrace.git` through the installed
+  `gh` CLI and HTTPS Git using the macOS-keyring-backed credential helper.
+- Every GitHub operation must name the exact repository/URL, Git HTTPS transport,
   read-only or mutation class, exact permitted operation, prohibited
-  operations, and required sanitized before/after evidence.
+  operations, and required sanitized before/after evidence. Revalidate
+  `gh auth status`, account `ashrayastudio`, credential-free origin,
+  branch/ref, index, and worktree; never retrieve or print the token.
+- Hermes is a bounded backup only after the exact direct Codex/`gh` route fails
+  for a non-sandbox reason or the founder explicitly requests Hermes. Use its
+  maintained handoff and existing configured `gh`/keyring access; never pass a
+  token in a prompt or file. A sandbox denial requires narrow escalation, not
+  an operator change.
 - The founder alone authorizes commits, GitHub mutations, deployment,
   publication, DNS/hosting/certificate/redirect changes, Apple/account work,
-  legal attestations, submission, and release. Hermes supplies operation, not
-  authorization.
+  legal attestations, submission, and release. Neither Codex nor Hermes
+  supplies authorization.
 
 ## Local validation and mutation boundaries
 
