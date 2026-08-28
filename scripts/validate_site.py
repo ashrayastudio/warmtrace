@@ -7,6 +7,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlsplit
 import sys
+import tempfile
 import xml.etree.ElementTree as ET
 
 
@@ -127,6 +128,15 @@ def local_target(reference: str) -> Path:
     return candidate
 
 
+def repository_html_paths(root: Path = ROOT) -> list[Path]:
+    """Return every public HTML source while excluding Git internals."""
+    return sorted(
+        path.relative_to(root)
+        for path in root.rglob("*.html")
+        if ".git" not in path.relative_to(root).parts
+    )
+
+
 def public_policy_errors(
     source: str,
     parser: PageParser,
@@ -218,6 +228,14 @@ def run_self_test() -> int:
         ):
             print("self-test accepted non-standard privacy controller copy", file=sys.stderr)
             return 1
+    with tempfile.TemporaryDirectory(prefix="warmtrace-site-validator.") as temporary:
+        root = Path(temporary)
+        future = root / "future" / "nested.html"
+        future.parent.mkdir(parents=True)
+        future.write_text("<p>Future</p>", encoding="utf-8")
+        if repository_html_paths(root) != [Path("future/nested.html")]:
+            print("self-test did not discover a nested future HTML page", file=sys.stderr)
+            return 1
     print("Warmtrace website validator self-test passed.")
     return 0
 
@@ -266,6 +284,24 @@ def main() -> int:
             target = local_target(reference)
             if not target.exists():
                 errors.append(f"{relative_path}: broken internal reference {reference}")
+
+    # Route-specific structure and canonical rules above apply only to the
+    # approved page set. Identity, controller, script/form/embed, external-
+    # dependency, and tracker policy must fail closed across every HTML source,
+    # including 404.html and any future page.
+    for relative_path in repository_html_paths():
+        if relative_path in PAGE_PATHS:
+            continue
+        source = (ROOT / relative_path).read_text(encoding="utf-8")
+        parser = PageParser()
+        parser.feed(source)
+        errors.extend(
+            f"{relative_path}: {message}"
+            for message in public_policy_errors(source, parser)
+        )
+        for marker in FORBIDDEN_TEXT:
+            if marker in source.lower():
+                errors.append(f"{relative_path}: forbidden tracker reference {marker}")
 
     expected_files = (
         ".nojekyll",
