@@ -19,6 +19,7 @@
 html { scroll-behavior: smooth; }
 body { margin: 0; background: var(--linen); color: var(--ink); font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.58; -webkit-font-smoothing: antialiased; }
 a { color: inherit; }
+a[href^="mailto:"] { overflow-wrap: anywhere; }
 .skip-link { position: fixed; left: 16px; top: -70px; z-index: 1000; padding: 11px 16px; border: 2px solid var(--teal); border-radius: 10px; background: var(--paper); }
 .skip-link:focus { top: 16px; }
 :focus-visible { outline: 3px solid var(--gold); outline-offset: 4px; }

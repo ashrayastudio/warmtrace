@@ -6,7 +6,8 @@ from __future__ import annotations
 from html.parser import HTMLParser
 from pathlib import Path
 import re
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, unquote, urlsplit
+from html import unescape
 import sys
 import tempfile
 import xml.etree.ElementTree as ET
@@ -36,7 +37,7 @@ FORBIDDEN_PUBLIC_IDENTITY = (
 )
 LEGAL_OPERATOR_NAME = "Kalpesh Patel"
 CONTROLLER_DISCLOSURE = f"The data controller is {LEGAL_OPERATOR_NAME}."
-APPROVED_PUBLIC_EMAIL_DOMAINS: frozenset[str] = frozenset()
+APPROVED_PUBLIC_EMAIL = "appportfolio.contact@gmail.com"
 EMAIL_PATTERN = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
 
 
@@ -158,6 +159,7 @@ def public_policy_errors(
             *parser.attribute_values,
         ]
     ).lower()
+    public_surface_text = unquote(unescape(public_surface_text))
     for marker in FORBIDDEN_PUBLIC_IDENTITY:
         if marker.lower() in lowered or marker.lower() in public_surface_text:
             errors.append(f"forbidden public identity marker {marker}")
@@ -182,9 +184,23 @@ def public_policy_errors(
         if parsed.scheme in {"http", "https"} or reference.startswith("//"):
             errors.append(f"external runtime dependency {reference}")
     for email in EMAIL_PATTERN.findall(public_surface_text):
-        domain = email.rsplit("@", 1)[1].casefold()
-        if domain not in APPROVED_PUBLIC_EMAIL_DOMAINS:
-            errors.append(f"email outside approved product domain {email}")
+        if email.casefold() != APPROVED_PUBLIC_EMAIL:
+            errors.append("email outside approved exact mailbox")
+    for reference in parser.attribute_values:
+        decoded = unquote(reference)
+        if decoded.casefold().startswith("mailto:"):
+            parsed = urlsplit(decoded)
+            headers = parse_qsl(parsed.query, keep_blank_values=True)
+            if (
+                parsed.path.casefold() != APPROVED_PUBLIC_EMAIL
+                or parsed.netloc
+                or parsed.fragment
+                or any(ord(character) < 32 for character in decoded)
+                or any(key != "subject" or not value or any(ord(character) < 32 for character in value) for key, value in headers)
+                or len(headers) != 1
+                or not headers[0][1].startswith("Warmtrace ")
+            ):
+                errors.append("unapproved support mail link")
     return errors
 
 
@@ -192,8 +208,8 @@ def run_self_test() -> int:
     cases = (
         ("<p>Ashraya&#32;Studio</p>", "forbidden public identity marker"),
         ('<a href="mailto:hello@ashraya.ai">Support</a>', "forbidden public identity marker"),
-        ('<a href="mailto:help@example.com">Support</a>', "email outside approved product domain"),
-        ('<a href="mailto:help@getwarmtrace.com">Support</a>', "email outside approved product domain"),
+        ('<a href="mailto:help@example.com">Support</a>', "email outside approved exact mailbox"),
+        ('<a href="mailto:help@getwarmtrace.com">Support</a>', "email outside approved exact mailbox"),
         ("<p>Kalpesh Patel</p>", "forbidden public identity marker"),
         ("<p>&copy; 2026</p>", "forbidden public identity marker"),
         ("<form></form>", "forms are not permitted"),
@@ -208,7 +224,21 @@ def run_self_test() -> int:
             print(f"self-test did not reject {expected}", file=sys.stderr)
             return 1
 
-    accepted = "<p>Warmtrace</p><p>Support contact is being updated.</p>"
+    for address in ("other@gmail.com", "appportfolio.contact+app@gmail.com", "appportfoliocontact@gmail.com", "appportfolio.contact@gmail.com.evil.example", "appportfolio.contact@sub.gmail.com"):
+        source = f'<a href="mailto:{address}?subject=Warmtrace%20support">Contact</a>'
+        parser = PageParser()
+        parser.feed(source)
+        if not public_policy_errors(source, parser):
+            print("self-test accepted an unapproved mailbox", file=sys.stderr)
+            return 1
+    for suffix in ("&amp;cc=other%40gmail.com", "&amp;bcc=other%40gmail.com", "&amp;subject=duplicate", "%0D%0ABcc%3Aother%40gmail.com"):
+        source = f'<a href="mailto:{APPROVED_PUBLIC_EMAIL}?subject=Warmtrace%20support{suffix}">Contact</a>'
+        parser = PageParser()
+        parser.feed(source)
+        if not public_policy_errors(source, parser):
+            print("self-test accepted an unsafe mail header", file=sys.stderr)
+            return 1
+    accepted = f'<a href="mailto:{APPROVED_PUBLIC_EMAIL}?subject=Warmtrace%20support">{APPROVED_PUBLIC_EMAIL}</a>'
     parser = PageParser()
     parser.feed(accepted)
     if public_policy_errors(accepted, parser):
@@ -263,6 +293,9 @@ def main() -> int:
         lowered = source.lower()
         parser = PageParser()
         parser.feed(source)
+        if relative_path in {Path("support/index.html"), Path("privacy/index.html"), Path("terms/index.html")}:
+            if not any(value.startswith(f"mailto:{APPROVED_PUBLIC_EMAIL}?subject=Warmtrace%20") for value in parser.attribute_values):
+                errors.append(f"{relative_path}: missing approved support mail link")
 
         if not parser.title.strip():
             errors.append(f"{relative_path}: missing title")
