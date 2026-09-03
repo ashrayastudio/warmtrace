@@ -16,10 +16,12 @@ Missing, stale, conflicting, or `UNKNOWN` evidence keeps the action `BLOCKED`.
 - Ashraya Studio is not approved as provider, operator, seller, or owner.
 - The founder's legal name is omitted by default and may appear only when a
   current exact-surface requirement and founder decision support it.
-- The `ashrayastudio` GitHub owner, repository URL, `ashraya.ai` contact-domain
-  lead, and other established identifiers are technical/contact infrastructure,
-  not public legal-operator evidence.
-- Prefer role-based support wording and omit personal-name copyright footers.
+- The `ashrayastudio` GitHub owner and repository URL are internal technical
+  infrastructure. Neither those values nor an Ashraya-branded domain may
+  appear in rendered website content, HTML attributes, or customer contact
+  links.
+- Public email, when approved, must use the exact Warmtrace product domain.
+  Prefer role-based support wording and omit personal-name copyright footers.
 
 The central governing source is
 `/Users/hermes/Developer/personal-digital-products-ops`, especially D-016,

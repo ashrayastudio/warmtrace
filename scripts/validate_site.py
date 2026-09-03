@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from html.parser import HTMLParser
 from pathlib import Path
+import re
 from urllib.parse import urlsplit
 import sys
 import tempfile
@@ -28,12 +29,15 @@ FORBIDDEN_TEXT = (
     "hotjar",
 )
 FORBIDDEN_PUBLIC_IDENTITY = (
-    "ashraya studio",
+    "ashraya",
+    "ashrayastudio",
     "ashraya-operated",
     "©",
 )
 LEGAL_OPERATOR_NAME = "Kalpesh Patel"
 CONTROLLER_DISCLOSURE = f"The data controller is {LEGAL_OPERATOR_NAME}."
+APPROVED_PUBLIC_EMAIL_DOMAINS: frozenset[str] = frozenset()
+EMAIL_PATTERN = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
 
 
 class PageParser(HTMLParser):
@@ -177,12 +181,19 @@ def public_policy_errors(
         parsed = urlsplit(reference)
         if parsed.scheme in {"http", "https"} or reference.startswith("//"):
             errors.append(f"external runtime dependency {reference}")
+    for email in EMAIL_PATTERN.findall(public_surface_text):
+        domain = email.rsplit("@", 1)[1].casefold()
+        if domain not in APPROVED_PUBLIC_EMAIL_DOMAINS:
+            errors.append(f"email outside approved product domain {email}")
     return errors
 
 
 def run_self_test() -> int:
     cases = (
         ("<p>Ashraya&#32;Studio</p>", "forbidden public identity marker"),
+        ('<a href="mailto:hello@ashraya.ai">Support</a>', "forbidden public identity marker"),
+        ('<a href="mailto:help@example.com">Support</a>', "email outside approved product domain"),
+        ('<a href="mailto:help@getwarmtrace.com">Support</a>', "email outside approved product domain"),
         ("<p>Kalpesh Patel</p>", "forbidden public identity marker"),
         ("<p>&copy; 2026</p>", "forbidden public identity marker"),
         ("<form></form>", "forms are not permitted"),
@@ -197,11 +208,11 @@ def run_self_test() -> int:
             print(f"self-test did not reject {expected}", file=sys.stderr)
             return 1
 
-    accepted = '<p>Warmtrace</p><a href="mailto:hello@ashraya.ai">Support</a>'
+    accepted = "<p>Warmtrace</p><p>Support contact is being updated.</p>"
     parser = PageParser()
     parser.feed(accepted)
     if public_policy_errors(accepted, parser):
-        print("self-test rejected the role-based support/contact fixture", file=sys.stderr)
+        print("self-test rejected the contact-unavailable fixture", file=sys.stderr)
         return 1
 
     accepted_privacy = f"<p>{CONTROLLER_DISCLOSURE}</p>"
